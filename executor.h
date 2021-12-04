@@ -33,7 +33,7 @@ typedef struct {
  * @param   -   number of nodes
  * @return  -   non-zero return on failure
  */
-int control_node(transform_t *, int, int);
+int control_node(int, int);
 
 /**
  * Receives data and does intermediary computations returning result
@@ -43,7 +43,7 @@ int control_node(transform_t *, int, int);
  * @param   -   number of nodes
  * @return  -   non-zero return on failure
  */
-int process_node(transform_t *, int, int);
+int process_node(int, int);
 
 /**
  * Reference to encoder/decoder functions in provided object file.

@@ -1,17 +1,12 @@
+// Initial Commit
+
 #include "executor.h"
 
 int main(int argc, char**argv) {
     time_t          start,
                     end;
-    transform_t     *buffer;
     int             num_procs,
                     rank;
-
-    // Instantiate buffer
-    if(!(buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE))) {
-        fprintf(stderr, "Buffer failed to allocated.\n");
-        exit(EXIT_FAILURE);
-    }
 
     // Read items
     start = time(NULL);
@@ -21,12 +16,11 @@ int main(int argc, char**argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Main flow
+    (rank) ? control_node(rank, num_procs) : process_node(rank, num_procs);
 
     // Report timing.
     end = time(NULL);
-    fprintf(stderr,
-        "\nTotal Time: %ld:%02ld\n",
-        (end - start) / 60, (end - start) % 60);
+    fprintf(stderr, "\nTotal Time: %ld:%02ld\n", (end - start) / 60, (end - start) % 60);
 
     return 0;
 }

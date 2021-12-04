@@ -1,10 +1,10 @@
 #include "executor.h"
 
-int control_node(transform_t *buffer, int rank, int num_procs) {
+int control_node(int rank, int num_procs) {
 
 }
 
-int process_node(transform_t *buffer, int rank, int num_procs) {
+int process_node(int rank, int num_procs) {
 
 }
 
