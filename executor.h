@@ -5,7 +5,7 @@
 #include <mpi.h>
 
 #define BUFFER_SIZE     10000
-#define MASTER_PROC        0
+#define MASTER_PROC     0
 
 /**
  * Struct to contain all the required values throughout the process
@@ -21,19 +21,20 @@ typedef struct {
     size_t      index;
     uint16_t    key,
                 encoded_key,
-                decoded_key;
+                first_decoded,
+                second_decoded;
 } transform_t;
 
 /**
  * Parses I/O and distributes workload to child nodes for processing.
- * Upon completion retrieves entries from children nodes and ouputs
+ * Upon completion retrieves entries from children nodes and outputs
  * results.
  * @param   -   pointer to array of data
  * @param   -   rank
  * @param   -   number of nodes
  * @return  -   non-zero return on failure
  */
-int control_node(int, int);
+void control_node(int, int);
 
 /**
  * Receives data and does intermediary computations returning result
@@ -43,7 +44,20 @@ int control_node(int, int);
  * @param   -   number of nodes
  * @return  -   non-zero return on failure
  */
-int process_node(int, int);
+void process_node(int, int);
+
+/**
+ *
+ */
+void execute_workflow(transform_t *, int);
+
+void create_transform_structures(transform_t *, transform_t *, transform_t *, transform_t *);
+
+void destroy_transform_structures(transform_t *, transform_t *, transform_t *, transform_t *);
+
+void send_data(transform_t *, int);
+
+int receive_transform(transform_t *, int);
 
 /**
  * Reference to encoder/decoder functions in provided object file.
@@ -76,7 +90,7 @@ uint16_t transformED2(uint16_t, double *);
  * @param  - reference to array of transform structs
  * @return - size of all entries
  */
-size_t reader(transform_t *);
+int reader(transform_t *);
 
 /**
  * Handles the encoding portion for the program.

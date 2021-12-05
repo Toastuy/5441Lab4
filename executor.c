@@ -1,15 +1,50 @@
 #include "executor.h"
 
-int control_node(int rank, int num_procs) {
+void control_node(int rank, int num_procs) {
+    transform_t *buffer;
+    int size;
+    buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    size = reader(buffer);
+    send_data(buffer, size);
+}
+
+void process_node(int rank, int num_procs) {
 
 }
 
-int process_node(int rank, int num_procs) {
-
+void create_transform_structures(transform_t *input, transform_t *encoded,
+                                 transform_t *decoded, transform_t *output) {
+    input   = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    if(!input)
+        exit(EXIT_FAILURE);
+    encoded = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    if(!encoded) {
+        free(input);
+        exit(EXIT_FAILURE);
+    }
+    decoded = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    if(!decoded) {
+        free(input);
+        free(encoded);
+        exit(EXIT_FAILURE);
+    }
+    output = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    if(!output) {
+        free(input);
+        free(encoded);
+        free(decoded);
+        exit(EXIT_FAILURE);
+    }
 }
 
-size_t reader(transform_t *q) {
-    size_t index;
+void destroy_transform_structures(transform_t *t1, transform_t *t2,
+                                  transform_t *t3, transform_t *t4) {
+    free(t1); free(t2); free(t3); free(t4);
+}
+
+
+int reader(transform_t *q) {
+    int index;
     char cmd;
     uint16_t key;
     index = 1;
