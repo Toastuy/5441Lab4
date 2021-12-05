@@ -11,9 +11,13 @@ void control_node(int rank, int num_procs) {
     for(int i = 1; i < num_procs; ++i)
         send_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs);
 
-
-
     execute_workflow(buffer, size);
+
+    for(int i = 1; i < num_procs; ++i)
+        receive_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs);
+
+    output_entries(buffer);
+    free(buffer);
 }
 
 void process_node(int rank, int num_procs) {
@@ -51,23 +55,16 @@ void execute_workflow(transform_t *buffer, int size) {
         // Second decoder region
         #pragma omp for
         for (k = 0; k < size; ++k)
-            second_decode(&decoded[k], output);
+            second_decode(&decoded[k], buffer);
     }
-
-    while(i < size)
-        if(buffer[i].valid) {
-            output_entries(&output[i]);
-            i++;
-        }
-
     destroy_transform_structures(input, encoded, decoded, output);
 }
 
-void send_data(transform_t *t, int size) {
+void send_data(transform_t *t, int size, int rank, int num_procs) {
 
 }
 
-void receive_data(transform_t *t, int size) {
+void receive_data(transform_t *t, int size, int rank, int num_procs) {
 
 }
 

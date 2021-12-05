@@ -6,6 +6,7 @@
 #include <omp.h>
 
 #define BUFFER_SIZE     10000
+#define CONTROL_NODE    0
 
 /**
  * Struct to contain all the required values throughout the process
@@ -54,9 +55,9 @@ void create_transform_structures(transform_t *, transform_t *, transform_t *, tr
 
 void destroy_transform_structures(transform_t *, transform_t *, transform_t *, transform_t *);
 
-void send_data(transform_t *, int);
+void send_data(transform_t *t, int size, int rank, int num_procs);
 
-void receive_data(transform_t *, int);
+void receive_data(transform_t *t, int size, int rank, int num_procs);
 
 /**
  * Reference to encoder/decoder functions in provided object file.
