@@ -23,7 +23,9 @@ void control_node(int rank, int num_procs) {
 void process_node(int rank, int num_procs) {
     transform_t *buffer;
     int size;
-    
+
+    buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+
     // Get our data to work on
     receive_data(buffer, size, rank);
 
@@ -39,7 +41,7 @@ void process_node(int rank, int num_procs) {
 
 void execute_workflow(transform_t *buffer, int size) {
     int i, j, k;
-    transform_t *input, *encoded, *decoded, *output;
+    transform_t *input = NULL, *encoded = NULL, *decoded = NULL, *output = NULL;
     create_transform_structures(input, encoded, decoded, output);
 
     #pragma omp parallel
@@ -62,12 +64,12 @@ void execute_workflow(transform_t *buffer, int size) {
 
 
 void send_data(transform_t *t, int size, int rank) {
-    MPI_Send( (void *)t, size, MPI_BYTE * sizeof(transform_t *), rank, 0, MPI_COMM_WORLD );
+    MPI_Send( (void *) t, size * sizeof(transform_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD );
 }
 
 void receive_data(transform_t *t, int size, int rank) {
     MPI_Status status;
-    MPI_Recv( (void *)t, size, MPI_BYTE * sizeof(transform_t *), rank, 0, MPI_COMM_WORLD, &status);
+    MPI_Recv( (void *) t, size * sizeof(transform_t *), MPI_BYTE, rank, 0, MPI_COMM_WORLD, &status);
 }
 
 void create_transform_structures(transform_t *input, transform_t *encoded,
