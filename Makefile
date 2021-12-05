@@ -1,6 +1,7 @@
 # Source and lib files
-PROGRAM = lab2_hoke62_hoke62
+PROGRAM = lab4_hoke62_hoke62
 FILES.c = executor.c
+FILES.h = executor.h
 FILES.o = ${FILES.c:.c=.o} transformMat_lab2.o
 TEST	= input/PCS_data_t00100
 TEST1	= input/PCS_data_test
@@ -8,7 +9,7 @@ TEST2	= input/PCS_data_t00500
 TEST3	= input/PCS_data_test1
 
 # Compiler options
-CC 		= gcc
+CC 		= mpicc
 SFLAGS	= -std=c11
 GFLAGS	= -g
 OFLAGS  = -O3
@@ -27,7 +28,9 @@ all: ${PROGRAM}
 ${PROGRAM}: ${FILES.o}
 	${CC} -o $@ ${CFLAGS} ${FILES.o}
 
-executor.o:
+main.o:	${FILES.h}
+
+executor.o:	${FILES.h}
 
 test: ${PROGRAM} clean
 	./${PROGRAM} <${TEST} 2> error.log
@@ -42,4 +45,4 @@ full-test: ${PROGRAM} clean
 	./${PROGRAM} <${TEST3} 2> error.log
 
 clean:
-	rm -rf executor.o
+	rm -rf executor.o main.o
