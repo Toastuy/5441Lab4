@@ -20,11 +20,17 @@ void process_node(int rank, int num_procs) {
     transform_t *buffer;
     int size;
     
+    // Get our data to work on
     receive_data(buffer, size);
 
+    // Change the data in place
     execute_workflow(buffer, size);
 
+    // Send data over to control node
     send_data(buffer, size);
+
+    // Free our buffer since we sent it and don't need it anymore
+    free(buffer);
 }
 
 void execute_workflow(transform_t *buffer, int size) {
