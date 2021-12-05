@@ -5,7 +5,7 @@
 #include <mpi.h>
 #include <omp.h>
 
-#define BUFFER_SIZE     10000
+#define BUFFER_SIZE     2500
 #define CONTROL_NODE    0
 
 /**
@@ -44,12 +44,9 @@ void control_node(int, int);
  * @param   -   number of nodes
  * @return  -   non-zero return on failure
  */
-void process_node(int);
+void process_node(int, int);
 
-/**
- *
- */
-void execute_workflow(transform_t *, int);
+void execute_workflow(transform_t *, int, int, int);
 
 void create_transform_structures(transform_t *, transform_t *, transform_t *, transform_t *);
 

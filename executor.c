@@ -1,40 +1,32 @@
 #include "executor.h"
 
 void control_node(int rank, int num_procs) {
-    transform_t *buffer;
-    int size, block_size;
+    transform_t *buffer, *recv;
+    int size, i, j;
     buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    recv = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
 
     size = reader(buffer);
-    block_size = size / num_procs;
     send_data(buffer, size, rank);
 
-    for(int i = 1; i < num_procs; ++i) {
-        send_size(block_size, i);
-        send_data(buffer + (sizeof(transform_t *) + i) * block_size, block_size, i);
+    for(i = 1; i < num_procs; ++i) {
+        send_size(size, i);
+        send_data(buffer, size, i);
     }
 
-    execute_workflow(buffer, size / num_procs);
+    execute_workflow(buffer, size, num_procs, rank);
 
-    for(int i = 1; i < num_procs; ++i)
-        receive_data(buffer + (sizeof(transform_t *) + i) * block_size, block_size, i);
+    for(i = 1; i < num_procs; ++i) {
+        receive_data(recv, size, i);
+        for(j = (size / num_procs) * i; j < (size / num_procs) * (i + 1); ++j)
+            buffer[j] = recv[j];
+    }
 
     output_entries(buffer);
-    free(buffer);
+    free(buffer); free(recv);
 }
 
-void send_size(int size, int destination) {
-    MPI_Send((void *) &size, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
-}
-
-int receive_size(int source) {
-    MPI_Status status;
-    int size;
-    MPI_Recv(&size, 1, MPI_INT, source, 0, MPI_COMM_WORLD, &status);
-    return size;
-}
-
-void process_node(int rank) {
+void process_node(int rank, int num_procs) {
     transform_t *buffer;
     int size;
 
@@ -46,7 +38,7 @@ void process_node(int rank) {
     receive_data(buffer, size, rank);
 
     // Change the data in place
-    execute_workflow(buffer, size);
+    execute_workflow(buffer, size, num_procs, rank);
 
     // Send data over to control node
     send_data(buffer, size, rank);
@@ -55,36 +47,36 @@ void process_node(int rank) {
     free(buffer);
 }
 
-void execute_workflow(transform_t *buffer, int size) {
-    int i, j, k;
+void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
+    int i, j, k, base;
     transform_t *input = NULL, *encoded = NULL, *decoded = NULL, *output = NULL;
     create_transform_structures(input, encoded, decoded, output);
-
+    base = size / num_procs;
     #pragma omp parallel
     {
         // Encoder region
         #pragma omp for
-        for (i = 0; i < size; ++i)
+        for (i = rank * base; i < (rank + 1) * base; ++i)
             encoder(&input[i], encoded, i);
         // First decoder region
         #pragma omp for
-        for (j = 0; j < size; ++j)
+        for (j = rank * base; j < (rank + 1) * base; ++j)
             first_decode(&encoded[j], decoded, j);
         // Second decoder region
         #pragma omp for
-        for (k = 0; k < size; ++k)
+        for (k = rank * base; k < (rank + 1) * base; ++k)
             second_decode(&decoded[k], buffer);
     }
     destroy_transform_structures(input, encoded, decoded, output);
 }
 
 void send_data(transform_t *t, int size, int rank) {
-    MPI_Send( (void *) t, size * sizeof(transform_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD );
+    MPI_Send(t, size * sizeof(transform_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);
 }
 
 void receive_data(transform_t *t, int size, int rank) {
     MPI_Status status;
-    MPI_Recv( (void *) t, size * sizeof(transform_t *), MPI_BYTE, rank, 0, MPI_COMM_WORLD, &status);
+    MPI_Recv(t, size * sizeof(transform_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD, &status);
 }
 
 void create_transform_structures(transform_t *input, transform_t *encoded,
@@ -217,4 +209,15 @@ void output_entries(transform_t *t) {
     fprintf(stdout, "%6d %6c %6hu %6hu %6hu\n",
             t->index,         t->cmd,             t->encoded_key,
             t->first_decoded, t->second_decoded);
+}
+
+void send_size(int size, int destination) {
+    MPI_Send(&size, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
+}
+
+int receive_size(int source) {
+    MPI_Status status;
+    int size;
+    MPI_Recv(&size, 1, MPI_INT, source, 0, MPI_COMM_WORLD, &status);
+    return size;
 }
