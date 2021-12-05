@@ -42,7 +42,6 @@ void destroy_transform_structures(transform_t *t1, transform_t *t2,
     free(t1); free(t2); free(t3); free(t4);
 }
 
-
 int reader(transform_t *q) {
     int index;
     char cmd;

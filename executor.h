@@ -18,7 +18,7 @@ typedef struct {
     int         valid;
     char        cmd;
     double      retval;
-    size_t      index;
+    uint32_t    index;
     uint16_t    key,
                 encoded_key,
                 first_decoded,
