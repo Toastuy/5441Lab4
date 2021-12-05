@@ -19,8 +19,12 @@ void control_node(int rank, int num_procs) {
 void process_node(int rank, int num_procs) {
     transform_t *buffer;
     int size;
-    // TODO - send and receive logic for non-zero ranks
+    
+    receive_data(buffer, size);
+
     execute_workflow(buffer, size);
+
+    send_data(buffer, size);
 }
 
 void execute_workflow(transform_t *buffer, int size) {
