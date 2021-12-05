@@ -44,7 +44,7 @@ void control_node(int, int);
  * @param   -   number of nodes
  * @return  -   non-zero return on failure
  */
-void process_node(int, int);
+void process_node(int);
 
 /**
  *

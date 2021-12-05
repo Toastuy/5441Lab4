@@ -19,8 +19,10 @@ WFLAG1  = -Wall
 WFLAG2  = -Wextra
 WFLAG3  = -Wstrict-prototypes
 WFLAG4  = -Wmissing-prototypes
+WFLAG5	= -no-inline-min-size
+WFLAG6	= -no-inline-max-size
 FFLAGS	= ${FFLAG1} ${FFLAG2}
-WFLAGS	= ${WFLAG1} ${WFLAG2} ${WFLAG3} ${WFLAG4}
+WFLAGS	= ${WFLAG1} ${WFLAG2} ${WFLAG3} ${WFLAG4} ${WFLAG5} ${WFLAG6}
 CFLAGS	= ${FFLAGS} ${SFLAGS} ${GFLAGS} ${OFLAGS} ${WFLAGS}
 
 all: ${PROGRAM}
@@ -45,4 +47,4 @@ full-test: ${PROGRAM} clean
 	./${PROGRAM} <${TEST3} 2> error.log
 
 clean:
-	rm -rf executor.o main.o
+	rm -rf executor.o main.o ${PROGRAM}

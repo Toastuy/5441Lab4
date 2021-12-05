@@ -16,7 +16,7 @@ int main(int argc, char**argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     // Main flow
-    (rank) ? process_node(rank, num_procs) : control_node(rank, num_procs);
+    (rank) ? process_node(rank) : control_node(rank, num_procs);
 
     // Report timing.
     end = time(NULL);

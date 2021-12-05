@@ -4,9 +4,9 @@ void control_node(int rank, int num_procs) {
     transform_t *buffer;
     int size, block_size;
     buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
-    block_size = size / num_procs;
 
     size = reader(buffer);
+    block_size = size / num_procs;
     send_data(buffer, size, rank);
 
     for(int i = 1; i < num_procs; ++i) {
@@ -34,7 +34,7 @@ int receive_size(int source) {
     return size;
 }
 
-void process_node(int rank, int num_procs) {
+void process_node(int rank) {
     transform_t *buffer;
     int size;
 
@@ -77,7 +77,6 @@ void execute_workflow(transform_t *buffer, int size) {
     }
     destroy_transform_structures(input, encoded, decoded, output);
 }
-
 
 void send_data(transform_t *t, int size, int rank) {
     MPI_Send( (void *) t, size * sizeof(transform_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD );
@@ -137,7 +136,6 @@ int reader(transform_t *q) {
             index++;
         }
     }
-    printf("%lu\n", index);
     return index - 1;
 }
 
