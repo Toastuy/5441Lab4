@@ -59,6 +59,10 @@ void send_data(transform_t *, int , int);
 
 void receive_data(transform_t *, int, int);
 
+void send_size(int, int);
+
+int receive_size(int);
+
 /**
  * Reference to encoder/decoder functions in provided object file.
  * @param  - supplied key

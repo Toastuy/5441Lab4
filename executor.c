@@ -2,22 +2,36 @@
 
 void control_node(int rank, int num_procs) {
     transform_t *buffer;
-    int size;
+    int size, block_size;
     buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    block_size = size / num_procs;
 
     size = reader(buffer);
     send_data(buffer, size, rank);
 
-    for(int i = 1; i < num_procs; ++i)
-        send_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs, i);
+    for(int i = 1; i < num_procs; ++i) {
+        send_size(block_size, i);
+        send_data(buffer + (sizeof(transform_t *) + i) * block_size, block_size, i);
+    }
 
     execute_workflow(buffer, size);
 
     for(int i = 1; i < num_procs; ++i)
-        receive_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs, i);
+        receive_data(buffer + (sizeof(transform_t *) + i) * block_size, block_size, i);
 
     output_entries(buffer);
     free(buffer);
+}
+
+void send_size(int size, int destination) {
+    MPI_Send((void *) &size, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
+}
+
+int receive_size(int source) {
+    MPI_Status status;
+    int size;
+    MPI_Recv(&size, 1, MPI_INT, source, 0, MPI_COMM_WORLD, &status);
+    return size;
 }
 
 void process_node(int rank, int num_procs) {
@@ -25,6 +39,8 @@ void process_node(int rank, int num_procs) {
     int size;
 
     buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+
+    size = receive_size(CONTROL_NODE);
 
     // Get our data to work on
     receive_data(buffer, size, rank);
