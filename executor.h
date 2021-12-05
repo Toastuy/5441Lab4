@@ -15,10 +15,10 @@
  * (double) 2nd decoded return from transforms.
  */
 typedef struct {
-    int         valid;
+    int         valid,
+                index;
     char        cmd;
     double      retval;
-    uint32_t    index;
     uint16_t    key,
                 encoded_key,
                 first_decoded,
