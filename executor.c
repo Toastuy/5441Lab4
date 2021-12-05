@@ -24,10 +24,31 @@ void process_node(int rank, int num_procs) {
 }
 
 void execute_workflow(transform_t *buffer, int size) {
+    int i, j, k;
     transform_t *input, *encoded, *decoded, *output;
     create_transform_structures(input, encoded, decoded, output);
 
-    // TODO - implement workload
+    #pragma omp parallel
+    {
+        // Encoder region
+        #pragma omp for
+        for (i = 0; i < size; ++i)
+            encoder(&input[i], encoded, i);
+        // First decoder region
+        #pragma omp for
+        for (j = 0; j < size; ++j)
+            first_decode(&encoded[j], decoded, j);
+        // Second decoder region
+        #pragma omp for
+        for (k = 0; k < size; ++k)
+            second_decode(&decoded[k], output);
+    }
+
+    while(i < size)
+        if(buffer[i].valid) {
+            output_entries(&output[i]);
+            i++;
+        }
 
     destroy_transform_structures(input, encoded, decoded, output);
 }
