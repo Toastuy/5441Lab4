@@ -18,11 +18,7 @@ void control_node(int rank, int num_procs) {
 
 void process_node(int rank, int num_procs) {
     transform_t *buffer;
-    int size, rank, num_procs;
-
-    // Get our MPI stuff
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int size;
     
     // Get our data to work on
     receive_data(buffer, size, rank, num_procs);
