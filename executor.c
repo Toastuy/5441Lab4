@@ -6,10 +6,24 @@ void control_node(int rank, int num_procs) {
     buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
     size = reader(buffer);
     send_data(buffer, size);
+
+    execute_workflow(buffer, size);
 }
 
 void process_node(int rank, int num_procs) {
+    transform_t *buffer;
+    int size;
+    // TODO - send and receive logic for non-zero ranks
+    execute_workflow(buffer, size);
+}
 
+void execute_workflow(transform_t *buffer, int size) {
+    transform_t *input, *encoded, *decoded, *output;
+    create_transform_structures(input, encoded, decoded, output);
+
+    // TODO - implement workload
+
+    destroy_transform_structures(input, encoded, decoded, output);
 }
 
 void create_transform_structures(transform_t *input, transform_t *encoded,
@@ -66,21 +80,22 @@ int reader(transform_t *q) {
 }
 
 void encoder(transform_t *t, transform_t *q, size_t i) {
+    double retval;
     switch(t->cmd) {
         case 'A':
-            t->encoded_key = transformAE(t->key, &t->retval);
+            t->encoded_key = transformAE(t->key, &retval);
             break;
         case 'B':
-            t->encoded_key = transformBE(t->key, &t->retval);
+            t->encoded_key = transformBE(t->key, &retval);
             break;
         case 'C':
-            t->encoded_key = transformCE(t->key, &t->retval);
+            t->encoded_key = transformCE(t->key, &retval);
             break;
         case 'D':
-            t->encoded_key = transformDE(t->key, &t->retval);
+            t->encoded_key = transformDE(t->key, &retval);
             break;
         case 'E':
-            t->encoded_key = transformEE(t->key, &t->retval);
+            t->encoded_key = transformEE(t->key, &retval);
             break;
         default:
             break;
@@ -89,21 +104,22 @@ void encoder(transform_t *t, transform_t *q, size_t i) {
 }
 
 void first_decode(transform_t *t, transform_t *q, size_t i) {
+    double retval;
     switch(t->cmd) {
         case 'A':
-            t->first_decoded = transformAD1(t->encoded_key, &t->retval);
+            t->first_decoded = transformAD1(t->encoded_key, &retval);
             break;
         case 'B':
-            t->first_decoded = transformBD1(t->encoded_key, &t->retval);
+            t->first_decoded = transformBD1(t->encoded_key, &retval);
             break;
         case 'C':
-            t->first_decoded = transformCD1(t->encoded_key, &t->retval);
+            t->first_decoded = transformCD1(t->encoded_key, &retval);
             break;
         case 'D':
-            t->first_decoded = transformDD1(t->encoded_key, &t->retval);
+            t->first_decoded = transformDD1(t->encoded_key, &retval);
             break;
         case 'E':
-            t->first_decoded = transformED1(t->encoded_key, &t->retval);
+            t->first_decoded = transformED1(t->encoded_key, &retval);
             break;
         default:
             break;
@@ -113,21 +129,22 @@ void first_decode(transform_t *t, transform_t *q, size_t i) {
 
 // Overwrites retval from previous decoder call.
 void second_decode(transform_t *t, transform_t *o) {
+    double retval;
     switch(t->cmd) {
         case 'A':
-            t->second_decoded = transformAD2(t->first_decoded, &t->retval);
+            t->second_decoded = transformAD2(t->first_decoded, &retval);
             break;
         case 'B':
-            t->second_decoded = transformBD2(t->first_decoded, &t->retval);
+            t->second_decoded = transformBD2(t->first_decoded, &retval);
             break;
         case 'C':
-            t->second_decoded = transformCD2(t->first_decoded, &t->retval);
+            t->second_decoded = transformCD2(t->first_decoded, &retval);
             break;
         case 'D':
-            t->second_decoded = transformDD2(t->first_decoded, &t->retval);
+            t->second_decoded = transformDD2(t->first_decoded, &retval);
             break;
         case 'E':
-            t->second_decoded = transformED2(t->first_decoded, &t->retval);
+            t->second_decoded = transformED2(t->first_decoded, &retval);
             break;
         default:
             break;
@@ -137,7 +154,7 @@ void second_decode(transform_t *t, transform_t *o) {
 
 void output_entries(transform_t *t) {
     t->valid = 0;
-    fprintf(stdout, "%6lu %6c %6hu %6hu %6hu %23.1lf\n",
+    fprintf(stdout, "%6d %6c %6hu %6hu %6hu\n",
             t->index,         t->cmd,             t->encoded_key,
-            t->first_decoded, t->second_decoded,  t->retval);
+            t->first_decoded, t->second_decoded);
 }

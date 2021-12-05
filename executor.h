@@ -3,9 +3,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <mpi.h>
+#include <omp.h>
 
 #define BUFFER_SIZE     10000
-#define MASTER_PROC     0
 
 /**
  * Struct to contain all the required values throughout the process
@@ -18,7 +18,6 @@ typedef struct {
     int         valid,
                 index;
     char        cmd;
-    double      retval;
     uint16_t    key,
                 encoded_key,
                 first_decoded,
