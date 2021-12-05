@@ -18,6 +18,8 @@ int main(int argc, char**argv) {
     // Main flow
     (rank) ? process_node(rank) : control_node(rank, num_procs);
 
+    MPI_Finalize();
+
     // Report timing.
     end = time(NULL);
     fprintf(stderr, "\nTotal Time: %ld:%02ld\n", (end - start) / 60, (end - start) % 60);

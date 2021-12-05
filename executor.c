@@ -14,7 +14,7 @@ void control_node(int rank, int num_procs) {
         send_data(buffer + (sizeof(transform_t *) + i) * block_size, block_size, i);
     }
 
-    execute_workflow(buffer, size);
+    execute_workflow(buffer, size / num_procs);
 
     for(int i = 1; i < num_procs; ++i)
         receive_data(buffer + (sizeof(transform_t *) + i) * block_size, block_size, i);
