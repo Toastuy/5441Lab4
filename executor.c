@@ -6,15 +6,15 @@ void control_node(int rank, int num_procs) {
     buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
 
     size = reader(buffer);
-    send_data(buffer, size);
+    send_data(buffer, size, rank);
 
     for(int i = 1; i < num_procs; ++i)
-        send_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs);
+        send_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs, i);
 
     execute_workflow(buffer, size);
 
     for(int i = 1; i < num_procs; ++i)
-        receive_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs);
+        receive_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs, i);
 
     output_entries(buffer);
     free(buffer);
@@ -25,13 +25,13 @@ void process_node(int rank, int num_procs) {
     int size;
     
     // Get our data to work on
-    receive_data(buffer, size, rank, num_procs);
+    receive_data(buffer, size, rank);
 
     // Change the data in place
     execute_workflow(buffer, size);
 
     // Send data over to control node
-    send_data(buffer, size, rank, num_procs);
+    send_data(buffer, size, rank);
 
     // Free our buffer since we sent it and don't need it anymore
     free(buffer);
@@ -60,12 +60,14 @@ void execute_workflow(transform_t *buffer, int size) {
     destroy_transform_structures(input, encoded, decoded, output);
 }
 
-void send_data(transform_t *t, int size, int rank, int num_procs) {
 
+void send_data(transform_t *t, int size, int rank) {
+    MPI_Send( (void *)t, size, MPI_BYTE * sizeof(transform_t *), rank, 0, MPI_COMM_WORLD );
 }
 
-void receive_data(transform_t *t, int size, int rank, int num_procs) {
-
+void receive_data(transform_t *t, int size, int rank) {
+    MPI_Status status;
+    MPI_Recv( (void *)t, size, MPI_BYTE * sizeof(transform_t *), rank, 0, MPI_COMM_WORLD, &status);
 }
 
 void create_transform_structures(transform_t *input, transform_t *encoded,
