@@ -1,6 +1,6 @@
 # Source and lib files
 PROGRAM = lab4_hoke62_hoke62
-FILES.c = executor.c
+FILES.c = main.c executor.c
 FILES.h = executor.h
 FILES.o = ${FILES.c:.c=.o} transformMat_lab2.o
 TEST	= input/PCS_data_t00100
