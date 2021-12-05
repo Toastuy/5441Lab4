@@ -56,7 +56,7 @@ void destroy_transform_structures(transform_t *, transform_t *, transform_t *, t
 
 void send_data(transform_t *, int);
 
-int receive_transform(transform_t *, int);
+void receive_data(transform_t *, int);
 
 /**
  * Reference to encoder/decoder functions in provided object file.

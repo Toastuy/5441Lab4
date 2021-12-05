@@ -4,8 +4,14 @@ void control_node(int rank, int num_procs) {
     transform_t *buffer;
     int size;
     buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+
     size = reader(buffer);
     send_data(buffer, size);
+
+    for(int i = 1; i < num_procs; ++i)
+        send_data(buffer + (sizeof(transform_t *)  + i ) * (size / num_procs), size / num_procs);
+
+
 
     execute_workflow(buffer, size);
 }
@@ -24,6 +30,14 @@ void execute_workflow(transform_t *buffer, int size) {
     // TODO - implement workload
 
     destroy_transform_structures(input, encoded, decoded, output);
+}
+
+void send_data(transform_t *t, int size) {
+
+}
+
+void receive_data(transform_t *t, int size) {
+
 }
 
 void create_transform_structures(transform_t *input, transform_t *encoded,
