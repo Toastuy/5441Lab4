@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <time.h>
 #include <mpi.h>
+#include <string.h>
 #include <omp.h>
 
 #define BUFFER_SIZE     2500
-#define CONTROL_NODE    0
 
 /**
  * Struct to contain all the required values throughout the process
@@ -19,6 +19,7 @@ typedef struct {
     int         valid,
                 index;
     char        cmd;
+    double      retval;
     uint16_t    key,
                 encoded_key,
                 first_decoded,
@@ -47,18 +48,6 @@ void control_node(int, int);
 void process_node(int, int);
 
 void execute_workflow(transform_t *, int, int, int);
-
-void create_transform_structures(transform_t *, transform_t *, transform_t *, transform_t *);
-
-void destroy_transform_structures(transform_t *, transform_t *, transform_t *, transform_t *);
-
-void send_data(transform_t *, int , int);
-
-void receive_data(transform_t *, int, int);
-
-void send_size(int, int);
-
-int receive_size(int);
 
 /**
  * Reference to encoder/decoder functions in provided object file.
@@ -115,4 +104,4 @@ void first_decode(transform_t *, transform_t *, size_t);
  */
 void second_decode(transform_t *, transform_t *);
 
-void output_entries(transform_t *);
+void output_entries(transform_t *, int);

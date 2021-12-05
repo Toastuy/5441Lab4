@@ -1,112 +1,72 @@
 #include "executor.h"
 
 void control_node(int rank, int num_procs) {
-    transform_t *buffer, *recv;
-    int size, i, j;
-    buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
-    recv = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
+    transform_t buffer[BUFFER_SIZE], recv[BUFFER_SIZE];
+    int size, i, j, base, data_size;
+    MPI_Status status;
 
     size = reader(buffer);
-    send_data(buffer, size, rank);
+    base = size / num_procs;
+    data_size = size * (int) sizeof(transform_t);
 
     for(i = 1; i < num_procs; ++i) {
-        send_size(size, i);
-        send_data(buffer, size, i);
+        MPI_Send(&size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+        MPI_Send(buffer, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD);
     }
 
     execute_workflow(buffer, size, num_procs, rank);
 
     for(i = 1; i < num_procs; ++i) {
-        receive_data(recv, size, i);
-        for(j = (size / num_procs) * i; j < (size / num_procs) * (i + 1); ++j)
+        MPI_Recv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
+        for(j = base * i; j < base * (i + 1); ++j)
             buffer[j] = recv[j];
     }
-
-    output_entries(buffer);
-    free(buffer); free(recv);
+    output_entries(buffer, size);
 }
 
 void process_node(int rank, int num_procs) {
-    transform_t *buffer;
-    int size;
-
-    buffer = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
-
-    size = receive_size(CONTROL_NODE);
+    MPI_Status status;
+    transform_t buffer[BUFFER_SIZE];
+    int size, data_size;
 
     // Get our data to work on
-    receive_data(buffer, size, rank);
-
+    MPI_Recv(&size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+    data_size = size * (int) sizeof(transform_t);
+    MPI_Recv(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD, &status);
     // Change the data in place
     execute_workflow(buffer, size, num_procs, rank);
 
     // Send data over to control node
-    send_data(buffer, size, rank);
+    MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
 
-    // Free our buffer since we sent it and don't need it anymore
-    free(buffer);
+//    // Free our buffer since we sent it and don't need it anymore
+//    free(buffer);
 }
 
 void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
-    int i, j, k, base;
-    transform_t *input = NULL, *encoded = NULL, *decoded = NULL, *output = NULL;
-    create_transform_structures(input, encoded, decoded, output);
+    int i, j, k, base, min, max;
+    transform_t encoded[BUFFER_SIZE], decoded[BUFFER_SIZE], output[BUFFER_SIZE];
     base = size / num_procs;
+    min = base * rank;
+    max = (base + 1) * rank;
+
     #pragma omp parallel
     {
         // Encoder region
         #pragma omp for
-        for (i = rank * base; i < (rank + 1) * base; ++i)
-            encoder(&input[i], encoded, i);
+        for (i = min; i < max; ++i)
+            encoder(&buffer[i], encoded, i);
         // First decoder region
         #pragma omp for
-        for (j = rank * base; j < (rank + 1) * base; ++j)
+        for (j = min; j < max; ++j)
             first_decode(&encoded[j], decoded, j);
         // Second decoder region
         #pragma omp for
-        for (k = rank * base; k < (rank + 1) * base; ++k)
-            second_decode(&decoded[k], buffer);
-    }
-    destroy_transform_structures(input, encoded, decoded, output);
-}
+        for (k = min; k < max; ++k)
+            second_decode(&decoded[k], output);
+    };
 
-void send_data(transform_t *t, int size, int rank) {
-    MPI_Send(t, size * sizeof(transform_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD);
-}
-
-void receive_data(transform_t *t, int size, int rank) {
-    MPI_Status status;
-    MPI_Recv(t, size * sizeof(transform_t), MPI_BYTE, rank, 0, MPI_COMM_WORLD, &status);
-}
-
-void create_transform_structures(transform_t *input, transform_t *encoded,
-                                 transform_t *decoded, transform_t *output) {
-    input   = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
-    if(!input)
-        exit(EXIT_FAILURE);
-    encoded = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
-    if(!encoded) {
-        free(input);
-        exit(EXIT_FAILURE);
-    }
-    decoded = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
-    if(!decoded) {
-        free(input);
-        free(encoded);
-        exit(EXIT_FAILURE);
-    }
-    output = (transform_t *) malloc(sizeof(transform_t) * BUFFER_SIZE);
-    if(!output) {
-        free(input);
-        free(encoded);
-        free(decoded);
-        exit(EXIT_FAILURE);
-    }
-}
-
-void destroy_transform_structures(transform_t *t1, transform_t *t2,
-                                  transform_t *t3, transform_t *t4) {
-    free(t1); free(t2); free(t3); free(t4);
+    for(i = min; i < max; ++i) buffer[i] = output[i];
 }
 
 int reader(transform_t *q) {
@@ -132,22 +92,21 @@ int reader(transform_t *q) {
 }
 
 void encoder(transform_t *t, transform_t *q, size_t i) {
-    double retval;
     switch(t->cmd) {
         case 'A':
-            t->encoded_key = transformAE(t->key, &retval);
+            t->encoded_key = transformAE(t->key, &t->retval);
             break;
         case 'B':
-            t->encoded_key = transformBE(t->key, &retval);
+            t->encoded_key = transformBE(t->key, &t->retval);
             break;
         case 'C':
-            t->encoded_key = transformCE(t->key, &retval);
+            t->encoded_key = transformCE(t->key, &t->retval);
             break;
         case 'D':
-            t->encoded_key = transformDE(t->key, &retval);
+            t->encoded_key = transformDE(t->key, &t->retval);
             break;
         case 'E':
-            t->encoded_key = transformEE(t->key, &retval);
+            t->encoded_key = transformEE(t->key, &t->retval);
             break;
         default:
             break;
@@ -156,22 +115,21 @@ void encoder(transform_t *t, transform_t *q, size_t i) {
 }
 
 void first_decode(transform_t *t, transform_t *q, size_t i) {
-    double retval;
     switch(t->cmd) {
         case 'A':
-            t->first_decoded = transformAD1(t->encoded_key, &retval);
+            t->first_decoded = transformAD1(t->encoded_key, &t->retval);
             break;
         case 'B':
-            t->first_decoded = transformBD1(t->encoded_key, &retval);
+            t->first_decoded = transformBD1(t->encoded_key, &t->retval);
             break;
         case 'C':
-            t->first_decoded = transformCD1(t->encoded_key, &retval);
+            t->first_decoded = transformCD1(t->encoded_key, &t->retval);
             break;
         case 'D':
-            t->first_decoded = transformDD1(t->encoded_key, &retval);
+            t->first_decoded = transformDD1(t->encoded_key, &t->retval);
             break;
         case 'E':
-            t->first_decoded = transformED1(t->encoded_key, &retval);
+            t->first_decoded = transformED1(t->encoded_key, &t->retval);
             break;
         default:
             break;
@@ -181,22 +139,21 @@ void first_decode(transform_t *t, transform_t *q, size_t i) {
 
 // Overwrites retval from previous decoder call.
 void second_decode(transform_t *t, transform_t *o) {
-    double retval;
     switch(t->cmd) {
         case 'A':
-            t->second_decoded = transformAD2(t->first_decoded, &retval);
+            t->second_decoded = transformAD2(t->first_decoded, &t->retval);
             break;
         case 'B':
-            t->second_decoded = transformBD2(t->first_decoded, &retval);
+            t->second_decoded = transformBD2(t->first_decoded, &t->retval);
             break;
         case 'C':
-            t->second_decoded = transformCD2(t->first_decoded, &retval);
+            t->second_decoded = transformCD2(t->first_decoded, &t->retval);
             break;
         case 'D':
-            t->second_decoded = transformDD2(t->first_decoded, &retval);
+            t->second_decoded = transformDD2(t->first_decoded, &t->retval);
             break;
         case 'E':
-            t->second_decoded = transformED2(t->first_decoded, &retval);
+            t->second_decoded = transformED2(t->first_decoded, &t->retval);
             break;
         default:
             break;
@@ -204,20 +161,15 @@ void second_decode(transform_t *t, transform_t *o) {
     o[t->index - 1] = *t;
 }
 
-void output_entries(transform_t *t) {
-    t->valid = 0;
-    fprintf(stdout, "%6d %6c %6hu %6hu %6hu\n",
-            t->index,         t->cmd,             t->encoded_key,
-            t->first_decoded, t->second_decoded);
-}
+void output_entries(transform_t *t, int size) {
+    int i = 0;
+    while(i < size)
+        if(t[i].valid == 1) {
+            t[i].valid = 0;
+            fprintf(stdout, "%6d %6c %6hu %6hu %6hu\n",
+                    t[i].index,         t[i].cmd,             t[i].encoded_key,
+                    t[i].first_decoded, t[i].second_decoded);
+            i++;
+        }
 
-void send_size(int size, int destination) {
-    MPI_Send(&size, 1, MPI_INT, destination, 0, MPI_COMM_WORLD);
-}
-
-int receive_size(int source) {
-    MPI_Status status;
-    int size;
-    MPI_Recv(&size, 1, MPI_INT, source, 0, MPI_COMM_WORLD, &status);
-    return size;
 }
