@@ -7,6 +7,7 @@
 #include <omp.h>
 
 #define BUFFER_SIZE     2500
+#define CPU_COUNT       28
 
 /**
  * Struct to contain all the required values throughout the process

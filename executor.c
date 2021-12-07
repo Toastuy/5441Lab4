@@ -4,6 +4,7 @@ void control_node(int rank, int num_procs) {
     transform_t buffer[BUFFER_SIZE], recv[BUFFER_SIZE];
     int size, i, j, data_size;
     MPI_Status status;
+    MPI_Request recv_request;
 
     size = reader(buffer);
     data_size = size * (int) sizeof(transform_t);
@@ -16,7 +17,9 @@ void control_node(int rank, int num_procs) {
     execute_workflow(buffer, size, num_procs, rank);
 
     for(i = 1; i < num_procs; ++i) {
-        MPI_Recv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
+        // Asynchronously wait for first send from sibling process
+        MPI_Irecv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &recv_request);
+        MPI_Wait(&recv_request, &status);
         for(j = i; j < size; j += num_procs)
             buffer[j] = recv[j];
     }
@@ -25,6 +28,7 @@ void control_node(int rank, int num_procs) {
 
 void process_node(int rank, int num_procs) {
     MPI_Status status;
+    MPI_Request send_request;
     transform_t buffer[BUFFER_SIZE];
     int size, data_size;
 
@@ -35,15 +39,16 @@ void process_node(int rank, int num_procs) {
     // Change the data in place
     execute_workflow(buffer, size, num_procs, rank);
 
-    // Send data over to control node
-    MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+    // Async send and wait for rank 0 to respond
+    MPI_Isend(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request);
+    MPI_Wait(&send_request, &status);
 }
 
 void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
     int i, j, k;
-    transform_t encoded[BUFFER_SIZE], decoded[BUFFER_SIZE], output[BUFFER_SIZE];
+    transform_t encoded[BUFFER_SIZE], decoded[BUFFER_SIZE];
 
-    #pragma omp parallel
+    #pragma omp parallel num_threads(CPU_COUNT)
     {
         // Encoder region
         #pragma omp for
@@ -58,11 +63,11 @@ void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
         // Second decoder region
         #pragma omp for
             for (k = rank; k < size; k += num_procs) {
-                second_decode(&decoded[k], output);
+                second_decode(&decoded[k], buffer);
             }
     }
     // Load final results into original buffer
-    for(i = rank; i < size; i += num_procs) buffer[i] = output[i];
+
 }
 
 int reader(transform_t *q) {

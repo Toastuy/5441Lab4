@@ -5,6 +5,8 @@
 #SBATCH --account=PAS2065
 
 export PGM=lab4_hoke62_hoke62
+export OMP_NUM_THREADS=14
+export MV2_ENABLE_AFFINITY=0
 
 echo job started at `date`
 echo on compute node `cat $PBS_NODEFILE`
