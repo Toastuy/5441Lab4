@@ -10,7 +10,7 @@ TEST3	= input/PCS_data_test1
 
 # Compiler options
 CC 		= mpicc
-SFLAGS	= -std=c11
+SFLAGS	= -std=c99
 GFLAGS	= -g
 OFLAGS  = -O3
 FFLAG1	= -fopenmp

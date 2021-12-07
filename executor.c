@@ -7,16 +7,13 @@ void control_node(int rank, int num_procs) {
 
     // Read in data
     size = reader(buffer);
-    data_size = size * (int) sizeof(transform_t);
+    data_size = BUFFER_SIZE * (int) sizeof(transform_t);
 
     // Conduct workflow
     execute_workflow(buffer, size, num_procs, rank);
 
-    // Retrieve results from other processes. The expected rank is first signaled to
-    // minimize complications of overflowing the communication buffer from competing
-    // processes.
     for(i = 1; i < num_procs; ++i) {
-        MPI_Recv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
+        MPI_Recv(recv, data_size, MPI_BYTE, i, i, MPI_COMM_WORLD, &status);
         for(j = i; j < size; j += num_procs)
             buffer[j] = recv[j];
     }
@@ -26,27 +23,16 @@ void control_node(int rank, int num_procs) {
 }
 
 void process_node(int rank, int num_procs) {
-    MPI_Status status;
     transform_t buffer[BUFFER_SIZE];
-    int size, data_size, caller;
+    int size, data_size;
 
     // Read in data
     size = reader(buffer);
-    data_size = size * (int) sizeof(transform_t);
+    data_size = BUFFER_SIZE * (int) sizeof(transform_t);
 
     execute_workflow(buffer, size, num_procs, rank);
 
-    if(rank == 1) {
-        MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-        MPI_Send(&caller, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
-    } else if(rank < num_procs - 1) {
-        MPI_Recv(&caller, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &status);
-        MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-        MPI_Send(&caller, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
-    } else {
-        MPI_Recv(&caller, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &status);
-        MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-    }
+    MPI_Send(buffer, data_size, MPI_BYTE, 0, rank, MPI_COMM_WORLD);
 }
 
 void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
@@ -90,7 +76,6 @@ int reader(transform_t *q) {
             q[index - 1].index = index;
             q[index - 1].key   = key;
             q[index - 1].cmd   = cmd;
-            q[index - 1].valid = 1;
             index++;
         }
     }
@@ -169,12 +154,10 @@ void second_decode(transform_t *t, transform_t *o) {
 
 void output_entries(transform_t *t, int size) {
     int i = 0;
-    while(i < size)
-        if(t[i].valid == 1) {
-            t[i].valid = 0;
-            fprintf(stdout, "%6d %6c %6hu %6hu %6hu\n",
-                    t[i].index,         t[i].cmd,             t[i].encoded_key,
-                    t[i].first_decoded, t[i].second_decoded);
-            i++;
-        }
+    while(i < size) {
+        fprintf(stdout, "%6d %6c %6hu %6hu %6hu\n",
+                t[i].index,         t[i].cmd,             t[i].encoded_key,
+                t[i].first_decoded, t[i].second_decoded);
+        i++;
+    }
 }
