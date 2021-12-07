@@ -4,6 +4,8 @@
 #SBATCH --job-name=lab4_test
 #SBATCH --account=PAS2065
 
+module load mvapich2
+
 export PGM=lab4_hoke62_hoke62
 export OMP_NUM_THREADS=7
 export MV2_ENABLE_AFFINITY=0
@@ -16,7 +18,7 @@ cp input/* $TMPDIR
 cd $TMPDIR
 
 echo job started at `date` >>current.out
-time srun -n 4 $SLURM_SUBMIT_DIR/${PGM} < PCS_data_t00500  >>current.out 2>&1
+time srun -n 4 ./$SLURM_SUBMIT_DIR/${PGM} < PCS_data_t00500  >>current.out 2>&1
 echo job ended at `date` >>current.out
 
 export SAVEDIR=${SLURM_SUBMIT_DIR}'/data_test.'${SLURM_JOBID}
