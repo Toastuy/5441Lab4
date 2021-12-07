@@ -18,7 +18,9 @@ void control_node(int rank, int num_procs) {
     // Conduct workflow
     execute_workflow(buffer, size, num_procs, rank);
 
-    // Retrieve results from other processes
+    // Retrieve results from other processes. The expected rank is first signaled to
+    // minimize complications of overflowing the communication buffer from competing
+    // processes.
     for(i = 1; i < num_procs; ++i) {
         MPI_Send(&i, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         MPI_Recv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
@@ -43,7 +45,7 @@ void process_node(int rank, int num_procs) {
     execute_workflow(buffer, size, num_procs, rank);
 
     caller = 0;
-    // Spinlock to wait for correct caller
+    // Spinlock to wait for rank 0 to signal current rank
     while(caller != rank)
         MPI_Recv(&caller, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
     // Send data to rank 0
@@ -54,7 +56,7 @@ void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
     int i, j, k;
     transform_t encoded[BUFFER_SIZE], decoded[BUFFER_SIZE];
 
-    #pragma omp parallel num_threads(CPU_COUNT)
+    #pragma omp parallel num_threads(CPU_COUNT / num_procs)
     {
         // Encoder region
         #pragma omp for
