@@ -9,12 +9,6 @@ void control_node(int rank, int num_procs) {
     size = reader(buffer);
     data_size = size * (int) sizeof(transform_t);
 
-    // Send data size and data
-    for(i = 1; i < num_procs; ++i) {
-        MPI_Send(&size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
-        MPI_Send(buffer, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD);
-    }
-
     // Conduct workflow
     execute_workflow(buffer, size, num_procs, rank);
 
@@ -22,7 +16,6 @@ void control_node(int rank, int num_procs) {
     // minimize complications of overflowing the communication buffer from competing
     // processes.
     for(i = 1; i < num_procs; ++i) {
-        MPI_Send(&i, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         MPI_Recv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
         for(j = i; j < size; j += num_procs)
             buffer[j] = recv[j];
@@ -37,26 +30,30 @@ void process_node(int rank, int num_procs) {
     transform_t buffer[BUFFER_SIZE];
     int size, data_size, caller;
 
-    // Get our data to work on
-    MPI_Recv(&size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+    // Read in data
+    size = reader(buffer);
     data_size = size * (int) sizeof(transform_t);
-    MPI_Recv(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD, &status);
 
     execute_workflow(buffer, size, num_procs, rank);
 
-    caller = 0;
-    // Spinlock to wait for rank 0 to signal current rank
-    while(caller != rank)
-        MPI_Recv(&caller, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
-    // Send data to rank 0
-    MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+    if(rank == 1) {
+        MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(&caller, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    } else if(rank < num_procs - 1) {
+        MPI_Recv(&caller, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &status);
+        MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(&caller, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Recv(&caller, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, &status);
+        MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+    }
 }
 
 void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
     int i, j, k;
     transform_t encoded[BUFFER_SIZE], decoded[BUFFER_SIZE];
 
-    #pragma omp parallel num_threads(CPU_COUNT / num_procs)
+    #pragma omp parallel num_threads(CPU_COUNT)
     {
         // Encoder region
         #pragma omp for
