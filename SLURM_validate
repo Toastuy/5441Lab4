@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --time=1:00:00
 #SBATCH --ntasks=56 --nodes=2
-#SBATCH --job-name=lab4_test
+#SBATCH --job-name=lab4_validate
 #SBATCH --account=PAS2065
 
 export PGM=lab4_hoke62_hoke62

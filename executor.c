@@ -4,44 +4,50 @@ void control_node(int rank, int num_procs) {
     transform_t buffer[BUFFER_SIZE], recv[BUFFER_SIZE];
     int size, i, j, data_size;
     MPI_Status status;
-    MPI_Request recv_request;
 
+    // Read in data
     size = reader(buffer);
     data_size = size * (int) sizeof(transform_t);
 
+    // Send data size and data
     for(i = 1; i < num_procs; ++i) {
         MPI_Send(&size, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
         MPI_Send(buffer, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD);
     }
 
+    // Conduct workflow
     execute_workflow(buffer, size, num_procs, rank);
 
+    // Retrieve results from other processes
     for(i = 1; i < num_procs; ++i) {
-        // Asynchronously wait for first send from sibling process
-        MPI_Irecv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &recv_request);
-        MPI_Wait(&recv_request, &status);
+        MPI_Send(&i, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+        MPI_Recv(recv, data_size, MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
         for(j = i; j < size; j += num_procs)
             buffer[j] = recv[j];
     }
+
+    // Print outputs
     output_entries(buffer, size);
 }
 
 void process_node(int rank, int num_procs) {
     MPI_Status status;
-    MPI_Request send_request;
     transform_t buffer[BUFFER_SIZE];
-    int size, data_size;
+    int size, data_size, caller;
 
     // Get our data to work on
     MPI_Recv(&size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
     data_size = size * (int) sizeof(transform_t);
     MPI_Recv(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD, &status);
-    // Change the data in place
+
     execute_workflow(buffer, size, num_procs, rank);
 
-    // Async send and wait for rank 0 to respond
-    MPI_Isend(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request);
-    MPI_Wait(&send_request, &status);
+    caller = 0;
+    // Spinlock to wait for correct caller
+    while(caller != rank)
+        MPI_Recv(&caller, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+    // Send data to rank 0
+    MPI_Send(buffer, data_size, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
 }
 
 void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
@@ -66,8 +72,8 @@ void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
                 second_decode(&decoded[k], buffer);
             }
     }
-    // Load final results into original buffer
-
+    // Synchronization barrier for each block
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 int reader(transform_t *q) {
