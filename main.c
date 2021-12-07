@@ -8,7 +8,6 @@ int main(int argc, char**argv) {
     int             num_procs,
                     rank;
 
-    // Read items
     start = time(NULL);
 
     MPI_Init(&argc, &argv);
@@ -22,7 +21,9 @@ int main(int argc, char**argv) {
 
     // Report timing.
     end = time(NULL);
-    fprintf(stderr, "\nTotal Time: %ld:%02ld\n", (end - start) / 60, (end - start) % 60);
+
+    if(!rank) fprintf(stderr, "\nTotal Time: %ld:%02ld\n",
+                      (end - start) / 60, (end - start) % 60);
 
     return 0;
 }

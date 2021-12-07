@@ -10,11 +10,11 @@ echo job started at `date`
 echo on compute node `cat $PBS_NODEFILE`
 
 cd $SLURM_SUBMIT_DIR
-cp input/PCS_data_test1 $TMPDIR
+cp input/* $TMPDIR
 cd $TMPDIR
 
 echo job started at `date` >>current.out
-time $SLURM_SUBMIT_DIR/${PGM} < PCS_data_test1  >>current.out 2>&1
+time srun -n 4 $SLURM_SUBMIT_DIR/${PGM} < PCS_data_test1  >>current.out 2>&1
 echo job ended at `date` >>current.out
 
 export SAVEDIR=${SLURM_SUBMIT_DIR}'/data_test.'${SLURM_JOBID}
