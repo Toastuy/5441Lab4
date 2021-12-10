@@ -17,10 +17,8 @@
  * (double) 2nd decoded return from transforms.
  */
 typedef struct {
-    int         valid,
-                index;
+    int         index;
     char        cmd;
-    double      retval;
     uint16_t    key,
                 encoded_key,
                 first_decoded,
@@ -48,8 +46,6 @@ void control_node(int, int);
  */
 void process_node(int, int);
 
-void execute_workflow(transform_t *, int, int, int);
-
 /**
  * Reference to encoder/decoder functions in provided object file.
  * @param  - supplied key
@@ -76,12 +72,14 @@ uint16_t transformEE(uint16_t, double *);
 uint16_t transformED1(uint16_t, double *);
 uint16_t transformED2(uint16_t, double *);
 
+void execute_workflow(char *, uint16_t *, uint16_t *, uint16_t *, uint16_t *, int, int, int);
+
 /**
  * Reads the input filling the buffer.
  * @param  - reference to array of transform structs
  * @return - size of all entries
  */
-int reader(transform_t *);
+int reader(char *, int *, uint16_t *);
 
 /**
  * Handles the encoding portion for the program.
@@ -89,7 +87,7 @@ int reader(transform_t *);
  * @param  - reference to array of transform structs
  * @param  - index to input given
  */
-void encoder(transform_t *, transform_t *, size_t);
+void encoder(const char *, const uint16_t *, uint16_t *, double *);
 
 /**
  * Handles the encoding portion for the program.
@@ -97,12 +95,13 @@ void encoder(transform_t *, transform_t *, size_t);
  * @param  - reference to array of transform structs
  * @param  - index to input given
  */
-void first_decode(transform_t *, transform_t *, size_t);
+void first_decode(const char *, const uint16_t *, uint16_t *, double *);
 
 /**
  * Conducts the final transform and reports results to STDOUT.
  * @param  - reference to array of transform structs
  */
-void second_decode(transform_t *, transform_t *);
+void second_decode(const char *, const uint16_t *, uint16_t *, double *);
 
-void output_entries(transform_t *, int);
+void output_entries(const char *, const int *, const uint16_t *,
+                    const uint16_t *, const uint16_t *, int);

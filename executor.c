@@ -1,71 +1,96 @@
 #include "executor.h"
 
 void control_node(int rank, int num_procs) {
-    transform_t buffer[BUFFER_SIZE], recv[BUFFER_SIZE];
-    int size, i, j, data_size;
+    int         indices[BUFFER_SIZE];
+    char        cmds[BUFFER_SIZE];
+    uint16_t    keys[BUFFER_SIZE],
+                encoded[BUFFER_SIZE],
+                first_decode[BUFFER_SIZE],
+                second_decode[BUFFER_SIZE],
+                tmp_encode[BUFFER_SIZE],
+                tmp_first[BUFFER_SIZE],
+                tmp_second[BUFFER_SIZE];
+    int size, i, j;
     MPI_Status status;
 
     // Read in data
-    size = reader(buffer);
-    data_size = BUFFER_SIZE * (int) sizeof(transform_t);
-
-    // Conduct workflow
-    execute_workflow(buffer, size, num_procs, rank);
+    size = reader(cmds, indices, keys);
 
     for(i = 1; i < num_procs; ++i) {
-        MPI_Recv(recv, data_size, MPI_BYTE, i, i, MPI_COMM_WORLD, &status);
-        for(j = i; j < size; j += num_procs)
-            buffer[j] = recv[j];
+        MPI_Send(&size, 1, MPI_INT, i, i, MPI_COMM_WORLD);
+        MPI_Send(cmds, size, MPI_CHAR, i, i, MPI_COMM_WORLD);
+        MPI_Send(keys, size, MPI_UINT16_T, i, i, MPI_COMM_WORLD);
+    }
+
+    // Conduct workflow
+    execute_workflow(cmds, keys, encoded,first_decode, second_decode, size, num_procs, rank);
+
+    for(i = 1; i < num_procs; ++i) {
+        MPI_Recv(tmp_encode, size, MPI_UINT16_T, i, i, MPI_COMM_WORLD, &status);
+        MPI_Recv(tmp_first, size, MPI_UINT16_T, i, i, MPI_COMM_WORLD, &status);
+        MPI_Recv(tmp_second, size, MPI_UINT16_T, i, i, MPI_COMM_WORLD, &status);
+        for(j = i; j < size; j += num_procs) {
+            encoded[j] = tmp_encode[j];
+            first_decode[j] = tmp_first[j];
+            second_decode[j] = tmp_second[j];
+        }
     }
 
     // Print outputs
-    output_entries(buffer, size);
+    output_entries(cmds, indices, encoded, first_decode, second_decode, size);
 }
 
 void process_node(int rank, int num_procs) {
-    transform_t buffer[BUFFER_SIZE];
-    int size, data_size;
+    char        cmds[BUFFER_SIZE];
+    uint16_t    keys[BUFFER_SIZE],
+                encoded[BUFFER_SIZE],
+                first_decode[BUFFER_SIZE],
+                second_decode[BUFFER_SIZE];
+    int size;
+    MPI_Status status;
 
-    // Read in data
-    size = reader(buffer);
-    data_size = BUFFER_SIZE * (int) sizeof(transform_t);
+    MPI_Recv(&size, 1, MPI_INT, 0, rank, MPI_COMM_WORLD, &status);
+    MPI_Recv(cmds, size, MPI_CHAR, 0, rank, MPI_COMM_WORLD, &status);
+    MPI_Recv(keys, size, MPI_UINT16_T, 0, rank, MPI_COMM_WORLD, &status);
 
-    execute_workflow(buffer, size, num_procs, rank);
+    execute_workflow(cmds, keys, encoded,first_decode, second_decode, size, num_procs, rank);
 
-    MPI_Send(buffer, data_size, MPI_BYTE, 0, rank, MPI_COMM_WORLD);
+    MPI_Send(encoded, size, MPI_UINT16_T, 0, rank, MPI_COMM_WORLD);
+    MPI_Send(first_decode, size, MPI_UINT16_T, 0, rank, MPI_COMM_WORLD);
+    MPI_Send(second_decode, size, MPI_UINT16_T, 0, rank, MPI_COMM_WORLD);
 }
 
-void execute_workflow(transform_t *buffer, int size, int num_procs, int rank) {
+void execute_workflow(char *cmds, uint16_t *keys, uint16_t *encoded,
+                      uint16_t *first_decoded, uint16_t *second_decoded,
+                      int size, int num_procs, int rank) {
     int i, j, k;
-    transform_t encoded[BUFFER_SIZE], decoded[BUFFER_SIZE];
-
+    double retvals[size];
     #pragma omp parallel num_threads(CPU_COUNT)
     {
         // Encoder region
         #pragma omp for
             for (i = rank; i < size; i += num_procs) {
-                encoder(&buffer[i], encoded, i);
+                encoder(&cmds[i], &keys[i], &encoded[i], &retvals[i]);
             }
         // First decoder region
         #pragma omp for
             for (j = rank; j < size; j += num_procs) {
-                first_decode(&encoded[j], decoded, j);
+                first_decode(&cmds[j], &encoded[j], &first_decoded[j], &retvals[j]);
             }
         // Second decoder region
         #pragma omp for
             for (k = rank; k < size; k += num_procs) {
-                second_decode(&decoded[k], buffer);
+                second_decode(&cmds[k], &first_decoded[k], &second_decoded[k], &retvals[k]);
             }
     }
     // Synchronization barrier for each block
     MPI_Barrier(MPI_COMM_WORLD);
 }
 
-int reader(transform_t *q) {
-    int index;
+int reader(char *cmds, int *indices, uint16_t *keys) {
     char cmd;
     uint16_t key;
-    index = 1;
+    int index = 1;
     while(fscanf(stdin, "%c %hu", &cmd, &key)) {
         if(cmd == 'X') {
             break;
@@ -73,91 +98,89 @@ int reader(transform_t *q) {
             // insertion.
         } else if((cmd == 'A' || cmd == 'B' || cmd == 'C' ||
                 cmd == 'D' || cmd == 'E')) {
-            q[index - 1].index = index;
-            q[index - 1].key   = key;
-            q[index - 1].cmd   = cmd;
+            indices[index - 1]      = index;
+            keys[index - 1]         = key;
+            cmds[index - 1]         = cmd;
             index++;
         }
     }
     return index - 1;
 }
 
-void encoder(transform_t *t, transform_t *q, size_t i) {
-    switch(t->cmd) {
+void encoder(const char *cmds, const uint16_t *keys, uint16_t *encoded, double *retval) {
+    switch(*cmds) {
         case 'A':
-            t->encoded_key = transformAE(t->key, &t->retval);
+            *encoded = transformAE(*keys, retval);
             break;
         case 'B':
-            t->encoded_key = transformBE(t->key, &t->retval);
+            *encoded = transformBE(*keys, retval);
             break;
         case 'C':
-            t->encoded_key = transformCE(t->key, &t->retval);
+            *encoded = transformCE(*keys, retval);
             break;
         case 'D':
-            t->encoded_key = transformDE(t->key, &t->retval);
+            *encoded = transformDE(*keys, retval);
             break;
         case 'E':
-            t->encoded_key = transformEE(t->key, &t->retval);
+            *encoded = transformEE(*keys, retval);
             break;
         default:
             break;
     }
-    q[i] = *t;
 }
 
-void first_decode(transform_t *t, transform_t *q, size_t i) {
-    switch(t->cmd) {
+void first_decode(const char *cmds, const uint16_t *encoded, uint16_t *first_decoded, double *retval) {
+    switch(*cmds) {
         case 'A':
-            t->first_decoded = transformAD1(t->encoded_key, &t->retval);
+            *first_decoded = transformAD1(*encoded, retval);
             break;
         case 'B':
-            t->first_decoded = transformBD1(t->encoded_key, &t->retval);
+            *first_decoded = transformBD1(*encoded, retval);
             break;
         case 'C':
-            t->first_decoded = transformCD1(t->encoded_key, &t->retval);
+            *first_decoded = transformCD1(*encoded, retval);
             break;
         case 'D':
-            t->first_decoded = transformDD1(t->encoded_key, &t->retval);
+            *first_decoded = transformDD1(*encoded, retval);
             break;
         case 'E':
-            t->first_decoded = transformED1(t->encoded_key, &t->retval);
+            *first_decoded = transformED1(*encoded, retval);
             break;
         default:
             break;
     }
-    q[i] = *t;
 }
 
 // Overwrites retval from previous decoder call.
-void second_decode(transform_t *t, transform_t *o) {
-    switch(t->cmd) {
+void second_decode(const char *cmds, const uint16_t *first_decoded, uint16_t *second_decoded, double *retval) {
+    switch(*cmds) {
         case 'A':
-            t->second_decoded = transformAD2(t->first_decoded, &t->retval);
+            *second_decoded = transformAD2(*first_decoded, retval);
             break;
         case 'B':
-            t->second_decoded = transformBD2(t->first_decoded, &t->retval);
+            *second_decoded = transformBD2(*first_decoded, retval);
             break;
         case 'C':
-            t->second_decoded = transformCD2(t->first_decoded, &t->retval);
+            *second_decoded = transformCD2(*first_decoded, retval);
             break;
         case 'D':
-            t->second_decoded = transformDD2(t->first_decoded, &t->retval);
+            *second_decoded = transformDD2(*first_decoded, retval);
             break;
         case 'E':
-            t->second_decoded = transformED2(t->first_decoded, &t->retval);
+            *second_decoded = transformED2(*first_decoded, retval);
             break;
         default:
             break;
     }
-    o[t->index - 1] = *t;
 }
 
-void output_entries(transform_t *t, int size) {
+void output_entries(const char *cmds, const int *indices, const uint16_t *encoded,
+                    const uint16_t *first_decode, const uint16_t *second_decode, int size) {
     int i = 0;
     while(i < size) {
         fprintf(stdout, "%6d %6c %6hu %6hu %6hu\n",
-                t[i].index,         t[i].cmd,             t[i].encoded_key,
-                t[i].first_decoded, t[i].second_decoded);
+                indices[i],         cmds[i],             encoded[i],
+                first_decode[i], second_decode[i]);
         i++;
     }
 }
